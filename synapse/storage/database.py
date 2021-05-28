@@ -40,6 +40,7 @@ from twisted.enterprise import adbapi
 
 from synapse.api.errors import StoreError
 from synapse.config.database import DatabaseConnectionConfig
+from synapse.logging import opentracing
 from synapse.logging.context import (
     LoggingContext,
     current_context,
@@ -706,6 +707,10 @@ class DatabasePool:
             parent_context = curr_context
 
         start_time = monotonic_time()
+
+        # if we have an active opentracing span, and that span has been prioritised,
+        # start a new span for the query.
+        opentracing.trace()
 
         def inner_func(conn, *args, **kwargs):
             # We shouldn't be in a transaction. If we are then something

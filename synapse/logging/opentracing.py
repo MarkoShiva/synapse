@@ -220,9 +220,12 @@ try:
     import opentracing
 
     tags = opentracing.tags
+    Span = opentracing.Span
 except ImportError:
     opentracing = None
     tags = _DummyTagNames
+    Span = None
+
 try:
     from jaeger_client import Config as JaegerConfig
 
@@ -270,6 +273,12 @@ class SynapseTags:
 
     # HTTP request tag (used to distinguish full vs incremental syncs, etc)
     REQUEST_TAG = "request_tag"
+
+
+class SynapseBaggage:
+    """labels for synapse's baggage items"""
+
+    DEBUG_TRACING = "s"
 
 
 # Block everything by default
@@ -403,6 +412,13 @@ def whitelisted_homeserver(destination):
 
 
 # Start spans and scopes
+
+
+@only_if_tracing
+def active_span():
+    """Returns the active span, if any"""
+    return opentracing.tracer.active_span
+
 
 # Could use kwargs but I want these to be explicit
 def start_active_span(
@@ -559,6 +575,22 @@ def log_kv(key_values, timestamp=None):
 def set_operation_name(operation_name):
     """Sets the operation name of the active span"""
     opentracing.tracer.active_span.set_operation_name(operation_name)
+
+
+@ensure_active_span("set baggage on the trace")
+def set_baggage_item(key, value):
+    """Stores a Baggage item on the active span as a key/value pair.
+
+    Baggage is arbitrary data which is attached to a span, and inherited by
+    children of that span, including spans on remote servers.
+    """
+    return opentracing.tracer.active_span.set_baggage_item(key, value)
+
+
+@ensure_active_span("get baggage on the trace")
+def get_baggage_item(key):
+    """Get a Baggage item from the active span."""
+    return opentracing.tracer.active_span.set_baggage_item(key)
 
 
 # Injection and extraction
